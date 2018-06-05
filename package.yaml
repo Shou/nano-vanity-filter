@@ -29,8 +29,12 @@ dependencies:
 - blake2
 - bytestring
 - bits
-- ed25519
 - hexstring
+- cryptonite
+- ed25519
+- memory
+- base32string
+- lens
 
 library:
   source-dirs: src
