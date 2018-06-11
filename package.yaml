@@ -31,16 +31,16 @@ dependencies:
 - bits
 - hexstring
 - cryptonite
-- ed25519
 - memory
 - base32string
 - lens
+- containers
 
 library:
   source-dirs: src
 
 executables:
-  vanity-filter:
+  nano-vanity-filter:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
