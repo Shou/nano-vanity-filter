@@ -26,7 +26,6 @@ dependencies:
 - process
 - vector
 - random
-- blake2
 - bytestring
 - bits
 - hexstring

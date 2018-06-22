@@ -3,12 +3,17 @@
              PartialTypeSignatures,
              OverloadedStrings,
              OverloadedLists,
-             BangPatterns
+             BangPatterns,
+             DataKinds,
+             ScopedTypeVariables,
+             RankNTypes,
+             AllowAmbiguousTypes,
+             KindSignatures
 #-}
 
 module Lib where
 
-import qualified Crypto.Hash.BLAKE2.BLAKE2b as Blake2
+import qualified Crypto.Hash as Hash
 import Control.Monad
 import qualified Control.Monad.STM as STM
 import Control.Concurrent
@@ -37,6 +42,8 @@ import qualified Data.Text.Encoding as TEnc
 import qualified Data.Text.IO as Text
 import qualified Data.Vector as Vector
 import qualified Data.Word as Word
+import GHC.Conc
+import GHC.TypeLits
 import System.IO.Unsafe
 import qualified System.Process as Proc
 import qualified System.Random as Rand
@@ -51,11 +58,10 @@ data Wallet =
 
 instance Show Wallet where
   show (Wallet seed priv pub addr)
-    = "Wallet \n\tSeed "
-      <> showAsHEX seed <> "\n\tPrivate key "
-      <> showAsHEX priv <> "\n\tPublic key "
-      <> showAsHEX pub <> "\n\tAddress "
-      <> Bytes8.unpack addr
+    = "Wallet \n\tSeed " <> showAsHEX seed <> "\n\t" <> show (Bytes.unpack seed)
+      <> "\n\tPrivate key " <> showAsHEX priv <> "\n\t" <> show (Bytes.unpack priv)
+      <> "\n\tPublic key " <> showAsHEX pub <> "\n\t" <> show (Bytes.unpack pub)
+      <> "\n\tAddress " <> Bytes8.unpack addr <> "\n\t" <> show (Bytes.unpack addr)
 
 data Match =
   Match { getMatchWords :: Set.Set Bytes.ByteString
@@ -82,6 +88,8 @@ debugPrint = when shouldDebug . print
 
 americanEnglishFilename = "/home/benedict/.cccccc/american-english-long"
 
+prefix = "xrb_"
+
 nanoAlphabet = "13456789abcdefghijkmnopqrstuwxyz"
 nanoBase32 = Base32.fromBytes nanoAlphabet
 nanoBase32' = Bytes.foldl' go (0, 0)
@@ -98,19 +106,26 @@ nanoBase32' = Bytes.foldl' go (0, 0)
 
 -- Utils
 
-over :: Bytes.ByteString -> _ -> _ -> Bytes.ByteString
+over :: Bytes.ByteString -> Int -> (Word.Word8 -> Word.Word8) -> Bytes.ByteString
 over byteString index func = Lens.over (Lens.ix index) func byteString
 
 nonAlphabet c = c < 76 || c > 122
 
 -- / Utils
 
-makeNanoPriv :: _ -> _
-makeNanoPriv = Blake2.hash 32 mempty
+-- XXX(Shou): ideally we'd just combine the two functions below by passing (bitlen :: Nat)
+hash256 :: Bytes.ByteString -> Bytes.ByteString
+hash256 = BArray.convert . Hash.hash @_ @(Hash.Blake2b 256)
+
+hash512 :: Bytes.ByteString -> Bytes.ByteString
+hash512 = BArray.convert . Hash.hash @_ @(Hash.Blake2b 512)
+
+makeNanoPriv :: Bytes.ByteString -> Bytes.ByteString
+makeNanoPriv = hash256
 
 makeNanoPubkey :: Bytes.ByteString -> Bytes.ByteString
 makeNanoPubkey privkey =
-  let hashedPrivkey = Bytes.take 32 $ Blake2.hash 64 mempty privkey
+  let hashedPrivkey = Bytes.take 32 $ hash512 privkey
       clampedHash0 = over hashedPrivkey 0 (.&. 248)
       clampedHash = over clampedHash0 31 (\n -> n .&. 127 .|. 64)
       scalar = Cerr.throwCryptoError . Ecced.scalarDecodeLong $ clampedHash
@@ -120,10 +135,9 @@ makeNanoPubkey privkey =
 makeNanoAddress :: Bytes.ByteString -> Bytes.ByteString
 makeNanoAddress bs = TEnc.encodeUtf8 $ prefix <> account <> checksum
   where
-    prefix = "xrb_"
     paddedBs = if Bytes.head bs < 128 then 0 `Bytes.cons` bs else bs
     account = Base32.toText $ nanoBase32 paddedBs
-    checksum = Base32.toText $ nanoBase32 $ Bytes.reverse $ Blake2.hash 5 mempty bs
+    checksum = Base32.toText $ nanoBase32 $ Bytes.reverse $ Bytes.take 5 $ hash256 bs
 
 makeNanoWalletFromTextSeed textSeed =
   let byteSeed = hexToBytes textSeed
@@ -140,15 +154,16 @@ newNanoWallet = do
   byteSeed <- Bytes.pack <$> replicateM 32 (Rand.randomIO @Word.Word8)
   return $ makeNanoWalletFromSeed byteSeed
 
-generateNanoVanities :: STM.TQueue (_, Wallet)
+generateNanoVanities :: STM.TQueue (Set.Set Bytes.ByteString, Wallet)
                      -> Map.Map Word.Word8 (Set.Set Bytes.ByteString)
+                     -> Int
                      -> IO ()
-generateNanoVanities queue englishDict = Except.catch
-  (forever $ newNanoWallet >>= printScore queue englishDict)
-  (const @_ @Except.SomeException $ generateNanoVanities queue englishDict)
+generateNanoVanities queue englishDict score = Except.catch
+  (forever $ newNanoWallet >>= printScore queue englishDict score)
+  (const @_ @Except.SomeException $ generateNanoVanities queue englishDict score)
 
 vanityMatchQuantity :: _ -> Bytes.ByteString -> Set.Set Bytes.ByteString
-vanityMatchQuantity englishDict addr = containsWord mempty addr
+vanityMatchQuantity englishDict addr = containsWord mempty $ Bytes.drop (Text.length prefix + 1) addr
   where
     containsWord :: Set.Set Bytes.ByteString -> Bytes.ByteString -> Set.Set Bytes.ByteString
     containsWord wordAcc addrTail =
@@ -167,21 +182,28 @@ vanityMatchQuantity englishDict addr = containsWord mempty addr
                        (\word -> containsWord (Set.insert word wordAcc) $ Bytes.drop (Bytes.length word) addrTail)
                        match
 
-printScore :: STM.TQueue (_, Wallet)
+printScore :: STM.TQueue (Set.Set Bytes.ByteString, Wallet)
            -> Map.Map Word.Word8 (Set.Set Bytes.ByteString)
+           -> Int
            -> Wallet
            -> IO ()
-printScore queue englishDict wallet = do
+printScore queue englishDict score wallet = do
+  incQuantity
   let matches = vanityMatchQuantity englishDict $ getAddress wallet
-  when (length matches > 3) $ STM.atomically $ STM.writeTQueue queue (matches, wallet)
+  when (length matches > score) $ STM.atomically $ STM.writeTQueue queue (matches, wallet)
 
 runPrinter queue = forever $ do
   (matches, wallet) <- STM.atomically $ STM.readTQueue queue
   print $ Match matches (getSeed wallet) (getAddress wallet)
+  print (Bytes.unpack $ getSeed wallet, "seed")
+  print (Bytes.unpack $ getPrivateKey wallet, "secret")
+  print (Bytes.unpack $ getPublicKey wallet, "shared")
 
-incMVar :: Mut.MVar Int
+incMVar :: Mut.MVar Integer
 incMVar = unsafePerformIO $ Mut.newMVar 0
-incQuantity = Mut.modifyMVar_ incMVar (pure . (+1))
+incQuantity = Mut.modifyMVar_ incMVar increment
+  where
+    increment !n = return $! n + 1
 
 wordsToDict :: [Bytes.ByteString] -> Map.Map Word.Word8 (Set.Set Bytes.ByteString)
 wordsToDict = foldl' go mempty
@@ -191,11 +213,14 @@ wordsToDict = foldl' go mempty
           inserter wordListMay = Just . Set.insert word $ fromMaybe mempty wordListMay
       in Map.alter inserter firstLetter accMap
 
-loadEnglishDict = wordsToDict . filterEmpties . bsWords <$> Bytes.readFile americanEnglishFilename
+loadEnglishDict :: FilePath -> IO _
+loadEnglishDict = (wordsToDict . filter predicates . splitNewlines <$>) . Bytes.readFile
   where
-    newLineChar = 10
-    bsWords = Bytes.split newLineChar
-    filterEmpties = filter (/= mempty)
+    splitNewlines :: Bytes.ByteString -> [Bytes.ByteString]
+    splitNewlines = Bytes.split 10
+    predicates :: Bytes.ByteString -> Bool
+    predicates word = not (Bytes.null word) && not (Bytes.any isNonWordLetter word)
+    isNonWordLetter letter = nonAlphabet letter || letter == 108
 
 -- | Average addresses per second estimate
 printSpeed n = do
@@ -204,15 +229,18 @@ printSpeed n = do
     readMVar incMVar >>= print
     printSpeed $ n + 1
 
-someFunc :: IO ()
-someFunc = do
+someFunc :: () -> IO ()
+someFunc options = do
     printerQueue <- STM.newTQueueIO
-    englishDict <- loadEnglishDict
+    englishDict <- loadEnglishDict americanEnglishFilename
 
-    --forkIO $ printSpeed 1
+    forkIO $ printSpeed 1
 
-    forM_ @[] @IO @Int [1 .. 1] $ \workerNumber -> forkIO $ do
-      generateNanoVanities printerQueue englishDict
+    let minScore = 3
+
+    threadCount <- getNumProcessors
+    forM_ @[] @IO @Int [1 .. threadCount] $ \workerNumber -> forkIO $ do
+      generateNanoVanities printerQueue englishDict minScore
 
     runPrinter printerQueue
 
