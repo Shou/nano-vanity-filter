@@ -34,6 +34,8 @@ dependencies:
 - base32string
 - lens
 - containers
+- hashtables
+- type-operators
 
 library:
   source-dirs: src

@@ -1,34 +1,34 @@
-	Fri Jun 22 18:00 2018 Time and Allocation Profiling Report  (Final)
+	Tue Jun 26 16:56 2018 Time and Allocation Profiling Report  (Final)
 
 	   nano-vanity-filter +RTS -N -p -hc -RTS
 
-	total time  =      265.60 secs   (1062398 ticks @ 1000 us, 4 processors)
-	total alloc = 44,872,321,208 bytes  (excludes profiling overheads)
+	total time  =       53.18 secs   (212739 ticks @ 1000 us, 4 processors)
+	total alloc = 70,329,397,704 bytes  (excludes profiling overheads)
 
-COST CENTRE                              MODULE                 SRC                                        %time %alloc
+COST CENTRE                                    MODULE                           SRC                                                     %time %alloc
 
-vanityMatchQuantity.containsWord.match   Lib                    src/Lib.hs:172:11-38                        58.1    0.4
-vanityMatchQuantity.containsWord.matcher Lib                    src/Lib.hs:171:11-50                        29.6    0.0
-b32EncodeInt                             Data.Base32String      src/Data/Base32String.hs:(109,1)-(112,53)    1.5   19.1
-vanityMatchQuantity.containsWord         Lib                    src/Lib.hs:(168,5)-(182,28)                  0.7    2.8
-bsToInteger.f                            Data.Base32String      src/Data/Base32String.hs:150:5-38            0.6   11.1
-stdNext                                  System.Random          System/Random.hs:(518,1)-(528,64)            0.5    7.9
-withMutablePtrHint                       Basement.Block.Base    Basement/Block/Base.hs:(468,1)-(482,50)      0.4    3.1
-allocAndFreeze                           Data.ByteArray.Methods Data/ByteArray/Methods.hs:75:1-45            0.4    1.3
-randomIvalInteger                        System.Random          System/Random.hs:(468,1)-(489,76)            0.4    5.0
-makeNanoAddress                          Lib                    src/Lib.hs:(135,1)-(139,85)                  0.4    5.5
-getStdRandom                             System.Random          System/Random.hs:(586,1)-(587,26)            0.3    5.4
-randomIvalInteger.f                      System.Random          System/Random.hs:(486,8)-(489,76)            0.2    1.1
-newNanoWallet                            Lib                    src/Lib.hs:(152,1)-(154,42)                  0.2    1.3
-withMutablePtrHint.callWithPtr           Basement.Block.Base    Basement/Block/Base.hs:(480,5)-(482,50)      0.2    1.1
-withPtr                                  Data.ByteArray.Bytes   Data/ByteArray/Bytes.hs:(89,1)-(92,12)       0.2    1.2
-allocRet                                 Data.ByteArray.Types   Data/ByteArray/Types.hs:(105,5)-(108,43)     0.1    1.0
-randomIvalInteger.f.v'                   System.Random          System/Random.hs:489:25-76                   0.1    1.4
-bsToInteger                              Data.Base32String      src/Data/Base32String.hs:(148,1)-(150,38)    0.1    3.3
-next                                     System.Random          System/Random.hs:218:3-17                    0.1    1.1
-b32EncodeInt.f                           Data.Base32String      src/Data/Base32String.hs:112:5-53            0.1    1.3
-b32                                      Data.Base32String      src/Data/Base32String.hs:101:1-45            0.1    1.3
-randomIvalIntegral                       System.Random          System/Random.hs:462:1-71                    0.1    1.1
-newBytes.\                               Data.ByteArray.Bytes   Data/ByteArray/Bytes.hs:(77,9)-(78,52)       0.0    3.8
-
-
+lookup/go                                      Data.HashTable.ST.Basic          src/Data/HashTable/ST/Basic.hs:(253,53)-(284,54)          9.7    0.0
+b32EncodeInt                                   Data.Base32String                src/Data/Base32String.hs:(109,1)-(112,53)                 9.0   11.1
+vanityMatchQuantity.containsWord               Lib                              src/Lib.hs:(187,5)-(201,28)                               7.8    8.6
+setLookup                                      Lib                              src/Lib.hs:90:1-80                                        7.5    9.2
+stdNext                                        System.Random                    System/Random.hs:(518,1)-(528,64)                         5.0    6.4
+getStdRandom                                   System.Random                    System/Random.hs:(586,1)-(587,26)                         4.4    3.5
+randomIvalInteger                              System.Random                    System/Random.hs:(468,1)-(489,76)                         3.6    3.8
+bsToInteger.f                                  Data.Base32String                src/Data/Base32String.hs:150:5-38                         3.5    6.4
+randomIvalInteger.f                            System.Random                    System/Random.hs:(486,8)-(489,76)                         2.5    0.9
+primitive                                      Control.Monad.Primitive          Control/Monad/Primitive.hs:178:3-16                       2.4    0.0
+vanityMatchQuantity.containsWord.possibleWords Lib                              src/Lib.hs:197:17-76                                      2.2   12.0
+withMutablePtrHint                             Basement.Block.Base              Basement/Block/Base.hs:(468,1)-(482,50)                   1.9    1.8
+makeNanoAddress                                Lib                              src/Lib.hs:(154,1)-(158,94)                               1.8    3.2
+allocAndFreeze                                 Data.ByteArray.Methods           Data/ByteArray/Methods.hs:75:1-45                         1.4    0.8
+hashUpdates.\.\.\                              Crypto.Hash                      Crypto/Hash.hs:85:48-99                                   1.4    0.2
+hash                                           Data.Hashable.Class              Data/Hashable/Class.hs:234:5-35                           1.3    0.0
+hashWithSalt.\                                 Data.Hashable.Class              Data/Hashable/Class.hs:616:28-68                          1.3    2.1
+randomIvalInteger.f.v'                         System.Random                    System/Random.hs:489:25-76                                1.2    1.2
+next                                           System.Random                    System/Random.hs:218:3-17                                 1.2    0.9
+hashPtrWithSalt                                Data.Hashable.Class              Data/Hashable/Class.hs:(723,1)-(725,23)                   0.8    1.4
+readArray                                      Data.HashTable.Internal.IntArray src/Data/HashTable/Internal/IntArray.hs:(94,1)-(96,25)    0.8    2.2
+bsToInteger                                    Data.Base32String                src/Data/Base32String.hs:(148,1)-(150,38)                 0.7    1.9
+primWordToElem                                 Data.HashTable.Internal.IntArray src/Data/HashTable/Internal/IntArray.hs:53:1-21           0.7    1.4
+readByteArray#                                 Data.Primitive.Types             Data/Primitive/Types.hs:166:311-447                       0.2    1.4
+newBytes.\                                     Data.ByteArray.Bytes             Data/ByteArray/Bytes.hs:(77,9)-(78,52)                    0.1    2.3
